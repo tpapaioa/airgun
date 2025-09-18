@@ -1,3 +1,7 @@
+from time import sleep
+
+from wait_for import wait_for
+
 from airgun.entities.base import BaseEntity
 from airgun.navigation import NavigateStep, navigator
 from airgun.utils import retry_navigation
@@ -8,11 +12,8 @@ from airgun.views.cloud_insights import (
     RecommendationsTabView,
     RemediateSummary,
 )
-from wait_for import wait_for
-
 from airgun.views.job_invocation import JobInvocationStatusView
 
-import time
 
 class CloudInsightsEntity(BaseEntity):
     endpoint_path = '/foreman_rh_cloud/insights_cloud'
@@ -80,26 +81,24 @@ class RecommendationsTabEntity(BaseEntity):
         view = self.navigate_to(
             self, 'Affected Systems', recommendation_name=recommendation_name
         )
-        view.wait_displayed()
-        # Wait for the affected systems table to be present and visible
-        self.browser.wait_for_element(view.table, ensure_page_safe=True, exception=False)
-        view.table.wait_displayed()
-        # Filter by hostname and wait for results
+
+        # FIXME: Need to wait on search_field to display on Affected Systems page (RecommendationsTabView) 
+        sleep(5)
         view.search_field.fill(hostname)
-        self.browser.plugin.ensure_page_safe(timeout='10s')
-        # Select the target host row and remediate
-        # wait_for(lambda: view.table[0][1] is not None, timeout=10, delay=1)
-        wait_for(lambda: view.table.row(name=hostname), timeout=15)
-        time.sleep(5)
-        view.table[0][0].widget.click()
-        time.sleep(5)
+
+        # Select the target host row
+        host_row, _ = wait_for(lambda: view.table.row(name=hostname), handle_exception=True, timeout=30)
+        host_row[0].widget.click()
+
+        # Remediate
         view.remediate.click()
-        self.browser.plugin.ensure_page_safe(timeout='30s')
         modal = RemediateSummary(self.browser)
-        if modal.is_displayed:
-            modal.remediate.click()
+        modal.wait_displayed()
+        modal.remediate.click()
+
         view = JobInvocationStatusView(view.browser)
         view.wait_for_result()
+
         return view.read()
 
 
