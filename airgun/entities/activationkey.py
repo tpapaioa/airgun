@@ -5,7 +5,6 @@ from wait_for import wait_for
 
 from airgun.entities.base import BaseEntity
 from airgun.navigation import NavigateStep, navigator
-from airgun.utils import retry_navigation
 from airgun.views.activationkey import (
     ActivationKeyCreateView,
     ActivationKeyEditView,
@@ -206,29 +205,27 @@ class ShowAllActivationKeys(NavigateStep):
 
     VIEW = ActivationKeysView
 
-    @retry_navigation
     def step(self, *args, **kwargs):
         self.view.menu.select('Content', 'Lifecycle', 'Activation Keys')
 
 
 @navigator.register(ActivationKeyEntity, 'New')
 class AddNewActivationKey(NavigateStep):
-    """Navigate to New Activation Key page"""
+    """Navigate to Create Activation Key page"""
 
     VIEW = ActivationKeyCreateView
-
     prerequisite = NavigateToSibling('All')
 
     def step(self, *args, **kwargs):
-        self.parent.browser.click(self.parent.new)
+        self.parent.new.click()
 
 
 @navigator.register(ActivationKeyEntity, 'Edit')
-class EditExistingActivationKey(NavigateStep):
+class EditActivationKey(NavigateStep):
     """Navigate to Edit Activation Key page
 
     Args:
-        entity_name: name of the activation key
+        entity_name: name of activation key
     """
 
     VIEW = ActivationKeyEditView

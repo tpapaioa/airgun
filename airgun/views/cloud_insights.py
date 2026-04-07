@@ -1,43 +1,43 @@
 from widgetastic.utils import ParametrizedLocator
 from widgetastic.widget import Checkbox, Text, TextInput, View
 from widgetastic_patternfly5 import (
-    Button as PF5Button,
-    ExpandableTable as PF5ExpandableTable,
-    Menu as PF5Menu,
-    Pagination as PF5Pagination,
-    PatternflyTable as PF5Table,
-    Select as PF5Select,
-    Title as PF5Title,
+    Button,
+    ExpandableTable,
+    Menu,
+    Pagination,
+    PatternflyTable as Table,
+    Select,
+    Title,
 )
 from widgetastic_patternfly5.ouia import (
-    Dropdown as PF5OUIADropdown,
-    Modal as PF5OUIAModal,
-    PatternflyTable as PF5OUIAPatternflyTable,
-    Switch as PF5OUIASwitch,
-    TextInput as PF5OUIATextInput,
+    Dropdown,
+    Modal,
+    PatternflyTable as Table_OUIA,
+    Switch,
+    TextInput as TextInput_OUIA,
 )
 
-from airgun.views.common import BaseLoggedInView, SearchableViewMixinPF4, TableRowKebabMenu
+from airgun.views.common import BaseLoggedInView, SearchableViewMixin2, TableRowKebabMenu
 
 
 class CloudTokenView(BaseLoggedInView):
     """Red Hat Lightspeed Landing page for adding RH Cloud Token."""
 
     rhcloud_token = TextInput(locator='//input[contains(@aria-label, "input-cloud-token")]')
-    save_token = PF5Button('Save setting and sync recommendations')
+    save_token = Button('Save setting and sync recommendations')
 
     @property
     def is_displayed(self):
         return self.rhcloud_token.is_displayed
 
 
-class RemediationView(PF5OUIAModal):
+class RemediationView(Modal):
     """Red Hat Lightspeed Remediations modal view"""
 
     OUIA_ID = 'remediation-modal'
-    remediate = PF5Button('Remediate')
-    cancel = PF5Button('Cancel')
-    table = PF5OUIAPatternflyTable(
+    remediate = Button('Remediate')
+    cancel = Button('Cancel')
+    table = Table_OUIA(
         component_id='remediations-table',
         column_widgets={
             'Hostname': Text('./a'),
@@ -52,15 +52,15 @@ class RemediationView(PF5OUIAModal):
         return self.title.is_displayed
 
 
-class CloudInsightsView(BaseLoggedInView, SearchableViewMixinPF4):
+class CloudInsightsView(BaseLoggedInView, SearchableViewMixin2):
     """Main Red Hat Lightspeed view."""
 
     title = Text('//h1[normalize-space(.)="Red Hat Lightspeed"]')
-    insights_sync_switcher = PF5OUIASwitch('foreman-rh-cloud-switcher')
-    remediate = PF5Button('Remediate')
-    insights_dropdown = PF5OUIADropdown('title-dropdown')
+    insights_sync_switcher = Switch('foreman-rh-cloud-switcher')
+    remediate = Button('Remediate')
+    insights_dropdown = Dropdown('title-dropdown')
     select_all = Checkbox(locator='.//input[@aria-label="Select all rows"]')
-    table = PF5OUIAPatternflyTable(
+    table = Table_OUIA(
         component_id='rh-cloud-recommendations-table',
         column_widgets={
             0: Checkbox(locator='.//input[@type="checkbox"]'),
@@ -70,9 +70,9 @@ class CloudInsightsView(BaseLoggedInView, SearchableViewMixinPF4):
             'Playbook': Text('.//a'),
         },
     )
-    select_all_hits = PF5Button('Select recommendations from all pages')
-    clear_hits_selection = PF5Button('Clear Selection')
-    pagination = PF5Pagination()
+    select_all_hits = Button('Select recommendations from all pages')
+    clear_hits_selection = Button('Clear Selection')
+    pagination = Pagination()
     remediation_window = View.nested(RemediationView)
 
     @property
@@ -80,7 +80,7 @@ class CloudInsightsView(BaseLoggedInView, SearchableViewMixinPF4):
         return self.title.is_displayed
 
 
-class BulkSelectMenuToggle(PF5Menu):
+class BulkSelectMenuToggle(Menu):
     """
     A menu toggle component that combines a checkbox with a dropdown menu.
     Used for bulk selection operations with additional menu options.
@@ -119,7 +119,7 @@ class BulkSelectMenuToggle(PF5Menu):
         return self.checkbox.selected
 
 
-class MenuToggleSelectParamLocator(PF5Select):
+class MenuToggleSelectParamLocator(Select):
     """
     Inherit MenuToggleSelect and set ROOT to the default locator.
     """
@@ -135,35 +135,35 @@ class MenuToggleSelectParamLocator(PF5Select):
     )
 
 
-class RemediateSummary(PF5OUIAModal):
+class RemediateSummary(Modal):
     """Models the Remediation summary page and button"""
 
-    title = PF5Title('Remediation summary')
-    remediate = PF5Button('Remediate')
+    title = Title('Remediation summary')
+    remediate = Button('Remediate')
 
 
-class DisableRecommendationModal(PF5OUIAModal):
+class DisableRecommendationModal(Modal):
     """"""
 
     checkbox = Checkbox(locator='.//input[@type="checkbox"]')
     justification_note = TextInput(locator=".//input[contains(@id, 'disable-rule-justification')]")
-    save = PF5Button('Save')
-    cancel = PF5Button('Cancel')
+    save = Button('Save')
+    cancel = Button('Cancel')
 
 
 class RecommendationsDetailsView(BaseLoggedInView):
     """Models everything in the recommendations details views execpt the affected system link"""
 
-    title = PF5Title('Affected Systems')
-    actions = PF5OUIADropdown('actions')
-    clear_button = PF5Button('Reset filters')
-    remediate = PF5Button('Remediate')
-    download_playbook = PF5Button('Download playbook')
-    enable_recommendation = PF5Button('Enable recommendation')
-    view_systems = PF5Button('View systems')
+    title = Title('Affected Systems')
+    actions = Dropdown('actions')
+    clear_button = Button('Reset filters')
+    remediate = Button('Remediate')
+    download_playbook = Button('Download playbook')
+    enable_recommendation = Button('Enable recommendation')
+    view_systems = Button('View systems')
     search_field = TextInput(locator=('.//input[@aria-label="text input"]'))
     bulk_select = BulkSelectMenuToggle()
-    table = PF5Table(
+    table = Table(
         locator='.//table[contains(@aria-label, "Host inventory")]',
         column_widgets={
             0: Checkbox(locator='.//input[@type="checkbox"]'),
@@ -177,7 +177,7 @@ class RecommendationsDetailsView(BaseLoggedInView):
 
     @property
     def is_displayed(self):
-        return self.table.is_displayed
+        return self.table.is_displayed and self.search_field.is_displayed
 
 
 class RecommendationsTableExpandedRowView(RecommendationsDetailsView):
@@ -193,22 +193,22 @@ class RecommendationsTableExpandedRowView(RecommendationsDetailsView):
         return self.affected_systems_url.is_displayed
 
 
-class RecommendationsTabView(BaseLoggedInView):
+class RecommendationsTabView(BaseLoggedInView, SearchableViewMixin2):
     """View representing the Recommendations Tab."""
 
-    title = PF5Title('Recommendations')
+    title = Title('Recommendations')
     search_field = TextInput(locator=('.//input[@aria-label="text input"]'))
-    clear_button = PF5Button('Reset filters')
+    clear_button = Button('Reset filters')
     incidents = Text(locator='.//a[@data-testid="Incidents"]')
     critical_recommendations = Text(locator='.//a[@data-testid="Critical recommendations"]')
     important_recommendations = Text(locator='.//a[@data-testid="Important recommendations"]')
-    conditional_filter_dropdown = PF5OUIATextInput('ConditionalFilter')
+    conditional_filter_dropdown = TextInput_OUIA('ConditionalFilter')
     menu_toggle = MenuToggleSelectParamLocator(
         locator='.//button[@data-ouia-component-id="ConditionalFilterToggle"]'
     )
     menu_filter = MenuToggleSelectParamLocator(locator='.//button[@aria-label="Options menu"]')
     no_authorized_header = Text('.//h5[contains(@class, "pf-v5-c-empty-state__title-text")]')
-    table = PF5ExpandableTable(
+    table = ExpandableTable(
         locator='.//table[contains(@data-ouia-component-id, "rules-table")]',
         content_view=RecommendationsTableExpandedRowView,
         column_widgets={

@@ -22,7 +22,6 @@ from airgun.views.host_new import (
     ModuleStreamDialog,
     NewHostDetailsView,
     ParameterDeleteDialog,
-    RemediationView,
 )
 from airgun.views.hostgroup import HostGroupEditView
 from airgun.views.job_invocation import JobInvocationCreateView, JobInvocationStatusView
@@ -968,12 +967,6 @@ class NewHostEntity(HostEntity):
         else:
             return []
 
-    def get_insights(self, entity_name):
-        # TODO consolidate with get_recommendations
-        view = self.navigate_to(self, 'NewDetails', entity_name=entity_name)
-        wait_for(lambda: view.insights.recommendations_table.is_displayed, timeout=10)
-        return view.insights.read()
-
     def select_host_from_breadcrumb(self, hostname):
         """Select a different host using the breadcrumb switcher.
 
@@ -994,53 +987,50 @@ class NewHostEntity(HostEntity):
         self.browser.plugin.ensure_page_safe()
         wait_for(lambda: view.is_displayed, timeout=10)
 
-    def read_current_insights_tab(self):
-        """Read the Insights tab content without navigating to a different page.
+    def read_current_recommendations_tab(self):
+        """Read the Recommendations tab content without navigating to a different page.
 
-        This method reads the currently displayed Insights tab data.
+        This method reads the currently displayed Recommendations tab data.
         It does NOT navigate to a host's details page, but instead reads whatever
         is currently shown on the page. This is useful for verifying that the
         tab content updated correctly after using breadcrumb switcher.
 
         Returns:
-            dict: The insights tab data currently displayed on the page
+            dict: The recommendations tab data currently displayed on the page
         """
         view = NewHostDetailsView(self.browser)
         view.wait_displayed()
-        self.browser.plugin.ensure_page_safe()
 
         # Make sure we're on the Insights tab
-        if hasattr(view, 'insights') and not view.insights.is_displayed:
-            view.insights.select()
-            wait_for(lambda: view.insights.is_displayed, timeout=10)
+        if not view.recommendations.is_displayed:
+            view.recommendations.select()
+            wait_for(lambda: view.recommendations.recommendations_table.is_displayed, timeout=60)
 
-        # Read the insights data that's currently displayed
-        wait_for(lambda: view.insights.recommendations_table.is_displayed, timeout=10)
-        return view.insights.read()
+        return view.recommendations.recommendations_table.read()
 
     def get_recommendations(self, entity_name):
         view = self.navigate_to(self, 'NewDetails', entity_name=entity_name)
-        view.iop_recommendations.select()
-        wait_for(lambda: view.iop_recommendations.recommendations_table.is_displayed, timeout=60)
-        return view.iop_recommendations.recommendations_table.read()
+        view.recommendations.select()
+        wait_for(lambda: view.recommendations.recommendations_table.is_displayed, timeout=60)
+        return view.recommendations.recommendations_table.read()
 
     def remediate_host_recommendation(self, entity_name, recommendation):
         """Function that can remediate an iop recommendation from the host page"""
         view = self.navigate_to(self, 'NewDetails', entity_name=entity_name)
 
-        wait_for(lambda: view.iop_recommendations.is_displayed, timeout=30)
-        view.iop_recommendations.search_field.fill(recommendation)
-        wait_for(lambda: view.iop_recommendations.recommendations_table.is_displayed, timeout=30)
+        wait_for(lambda: view.recommendations.is_displayed, timeout=30)
+        view.recommendations.search_field.fill(recommendation)
+        wait_for(lambda: view.recommendations.recommendations_table.is_displayed, timeout=30)
         wait_for(
-            lambda: view.iop_recommendations.recommendations_table.row(description=recommendation),
+            lambda: view.recommendations.recommendations_table.row(description=recommendation),
             handle_exception=True,
             timeout=30,
         )
 
-        row = view.iop_recommendations.recommendations_table.row(description=recommendation)
+        row = view.recommendations.recommendations_table.row(description=recommendation)
         row[1].widget.fill(True)
-        view.iop_recommendations.remediate.wait_displayed()
-        view.iop_recommendations.remediate.click()
+        view.recommendations.remediate.wait_displayed()
+        view.recommendations.remediate.click()
 
         modal = RemediateSummary(self.browser)
         wait_for(lambda: modal.is_displayed, handle_exception=True, timeout=20)
@@ -1053,11 +1043,11 @@ class NewHostEntity(HostEntity):
     def bulk_remediate_host_recommendation(self, entity_name):
         """Function that can bulk remediate an iop recommendation from the host page"""
         view = self.navigate_to(self, 'NewDetails', entity_name=entity_name)
-        wait_for(lambda: view.iop_recommendations.is_displayed, timeout=30)
-        view.iop_recommendations.bulk_select.select_all()
+        wait_for(lambda: view.recommendations.is_displayed, timeout=30)
+        view.recommendations.bulk_select.select_all()
 
-        view.iop_recommendations.remediate.wait_displayed()
-        view.iop_recommendations.remediate.click()
+        view.recommendations.remediate.wait_displayed()
+        view.recommendations.remediate.click()
 
         modal = RemediateSummary(self.browser)
         wait_for(lambda: modal.is_displayed, handle_exception=True, timeout=20)
@@ -1066,75 +1056,6 @@ class NewHostEntity(HostEntity):
         view = JobInvocationStatusView(view.browser)
         view.wait_for_result()
         return view.read()
-
-    def remediate_with_insights(
-        self, entity_name, recommendation_to_remediate=None, remediate_all=False
-    ):
-        """
-        Function that can remediate all or one recommendation with insights.
-
-        Args:
-            entity_name: Name of the host on which recommendations are to be remediated
-            recommendation_to_remediate: Name of the recommendation to be remediated
-            remediate_all: If True, all recommendations will be remediated
-
-        Raises:
-            ValueError: If recommendation_to_remediate is None and remediate_all is False
-                    or if both recommendation_to_remediate and remediate_all are provided.
-            IndexError: If given recommendation is not found
-
-        """
-
-        if (recommendation_to_remediate and remediate_all) or (
-            not recommendation_to_remediate and not remediate_all
-        ):
-            raise ValueError(
-                'Either recommendation_to_remediate or remediate_all must be provided!'
-            )
-
-        view = self.navigate_to(self, 'NewDetails', entity_name=entity_name)
-
-        if remediate_all:
-            view.insights.select_all_one_page.click()
-            view.insights.select_all_pages.click()
-        else:
-            view.insights.recommendations_table.sort_by('Recommendation', 'ascending')
-
-            if isinstance(recommendation_to_remediate, list):
-                if not recommendation_to_remediate:
-                    raise ValueError('List of recommendations cannot be empty!')
-                for recommendation in recommendation_to_remediate:
-                    view.insights.click()
-                    # Excape double quotes in the recommendation
-                    _rec = recommendation.replace('"', '\\"')
-                    _rec = f'title = "{_rec}"'
-                    view.insights.search_bar.fill(_rec, enter_timeout=3)
-                    view.wait_displayed()
-                    try:
-                        # Click the checkbox of the first recommendation
-                        view.insights.recommendations_table[0][0].widget.click()
-                    except IndexError as ie:
-                        raise IndexError(
-                            f'Recommendation {_rec} not found on {entity_name}, '
-                            'thus cannot be remediated.'
-                        ) from ie
-            else:
-                # Excape double quotes in the recommendation
-                recommendation_to_remediate = recommendation_to_remediate.replace('"', '\\"')
-                recommendation_to_remediate = f'title = "{recommendation_to_remediate}"'
-                view.insights.search_bar.fill(recommendation_to_remediate, enter_timeout=3)
-                view.wait_displayed()
-                try:
-                    # Click the checkbox of the first recommendation
-                    view.insights.recommendations_table[0][0].widget.click()
-                except IndexError as ie:
-                    raise IndexError(
-                        f'Recommendation {recommendation_to_remediate} not found '
-                        f'on {entity_name}, thus cannot be remediated.'
-                    ) from ie
-        view.insights.remediate.click()
-        view = RemediationView(self.browser)
-        view.remediate.click()
 
     def get_host_facts(self, entity_name, fact=None):
         view = self.navigate_to(self, 'NewDetails', entity_name=entity_name)

@@ -1,4 +1,8 @@
+from contextlib import contextmanager
+import time
+
 from selenium.common.exceptions import ElementNotInteractableException
+from wait_for import wait_for
 from widgetastic.widget import (
     Checkbox,
     ConditionalSwitchableView,
@@ -635,6 +639,98 @@ class SearchableViewMixin(WTMixin):
         if hasattr(self, 'title'):
             self.title.click()
         return self.table.read()
+
+
+class SearchableViewMixin2(WTMixin):
+    """Enhanced searchable table mixin with debounce delay for PatternFly UIs.
+
+    Adds explicit SEARCH_DELAY to handle delay between search input and query before updating table.
+
+    This mixin requires views to have:
+    - table attribute (any table widget)
+    - searchbox attribute (Search or custom search widget)
+
+    Optional attributes:
+    - clear_button: Button widget for "Reset filters" or "Clear filters"
+
+    Configuration flags:
+    - SEARCH_DELAY: Debounce delay in seconds (default: 0)
+
+    Usage:
+        class MyView(BaseLoggedInView, SearchableViewMixin2):
+            table = Table(...)
+            clear_button = Button('Reset filters')  # optional
+    """
+
+    SEARCH_DELAY = 0  # Default debounce delay after last user input, if search is immediate
+
+    # PatternFly loading indicators
+    LOADING = (
+        './/table[@aria-label="Loading"] | '  # legacy pattern
+        './/div[contains(@class, "pf-v5-c-skeleton")] | '  # PF5 skeleton component
+        './/td[contains(@class, "pf-v5-c-skeleton")]'  # PF5 skeleton table cells
+    )
+    TABLE_EMPTY_STATE = './/div[contains(@class, "-c-empty-state")]'
+
+    # root locator for the search toolbar
+    TOOLBAR = (
+        '(.//div[contains(@class, "foreman-search-bar")] | '
+        './/div[@data-ouia-component-id="table-toolbar"] | '
+        './/div[contains(@class, "toolbar-pf")] | '
+        './/div[@id="ins-primary-data-toolbar"])'
+    )
+
+    column_selector = PF5Dropdown(
+        locator=f'{TOOLBAR}//div[contains(@class, "ins-c-conditional-filter")]'
+    )
+
+    searchbox = Search()
+
+    @property
+    def table(self):
+        """
+        You must define the table widget in any View that inherits this
+        """
+        raise NotImplementedError
+
+    def search(self, query):
+        """Fill search component with the given query."""
+
+        fill_widget = self.searchbox
+        fill_value = query
+
+        fill_widget.wait_displayed()
+        current_value = fill_widget.read()
+
+        if current_value == fill_value:
+            self.logger.debug(
+                'Search input field already matches the given query. Leaving it unchanged.'
+            )
+            return
+
+        with self.ensure_table_reloads():
+            fill_widget.search(fill_value)
+
+        return self.table.read()
+
+    def _wait_for_table_load(self, timeout):
+        def _loaded():
+            if self.browser.elements(self.LOADING):
+                return False
+            elif self.table.is_displayed:
+                return True
+            return False
+
+        # Wait for "debounce" delay after search field input.
+        if self.SEARCH_DELAY:
+            time.sleep(self.SEARCH_DELAY)
+
+        wait_for(_loaded, delay=0.2, num_sec=timeout)
+
+    @contextmanager
+    def ensure_table_reloads(self, timeout=10):
+        yield
+        self._wait_for_table_load(timeout)
 
 
 class SearchableViewMixinPF4(SearchableViewMixin):

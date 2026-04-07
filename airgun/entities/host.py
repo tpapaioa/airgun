@@ -8,7 +8,6 @@ from airgun.entities.base import BaseEntity
 from airgun.exceptions import DisabledWidgetError
 from airgun.helpers.host import HostHelper
 from airgun.navigation import NavigateStep, navigator
-from airgun.utils import retry_navigation
 from airgun.views.all_hosts import AllHostsTableView
 from airgun.views.cloud_insights import CloudInsightsView
 from airgun.views.common import BaseLoggedInView
@@ -204,9 +203,9 @@ class HostEntity(BaseEntity):
         view = self.navigate_to(self, 'Recommendations')
         return view.table.read()
 
-    def insights_tab(self, entity_name):
-        """Get details from Insights tab"""
-        view = self.navigate_to(self, 'InsightsTab', entity_name=entity_name)
+    def recommendations_tab(self, entity_name):
+        """Get details from Recommendations tab"""
+        view = self.navigate_to(self, 'Recommendations', entity_name=entity_name)
         return view.read()
 
     def _select_action(self, action_name, entities_list):
@@ -474,11 +473,18 @@ class HostEntity(BaseEntity):
 
 @navigator.register(HostEntity, 'All')
 class ShowAllHosts(NavigateStep):
-    """Navigate to All Hosts page."""
+    """Navigate to All Hosts page.
+
+    Adapts to legacy vs new UI based on Satellite version.
+    """
 
     VIEW = HostsView
 
     prerequisite = NavigateToSibling('NewUIAll')
+
+    def step(self, *args, **kwargs):
+        if self.view.browser.feature_checker.has_feature('ui.hosts.legacy_ui_redirect'):
+            self.view.actions.item_select('Legacy UI')
 
 
 @navigator.register(HostEntity, 'New')
@@ -501,7 +507,6 @@ class RegisterHost(NavigateStep):
 
     prerequisite = NavigateToSibling('All')
 
-    @retry_navigation
     def step(self, *args, **kwargs):
         self.view.menu.select('Hosts', 'Register Host')
 
@@ -601,9 +606,9 @@ class ShowRecommendations(NavigateStep):
     VIEW = CloudInsightsView
 
 
-@navigator.register(HostEntity, 'InsightsTab')
-class InsightsTab(NavigateStep):
-    """Navigate to Insights tab on host details page"""
+@navigator.register(HostEntity, 'Recommendations')
+class Recommendations(NavigateStep):
+    """Navigate to Recommendations tab on host details page"""
 
     VIEW = RecommendationListView
 

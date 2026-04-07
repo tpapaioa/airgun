@@ -69,12 +69,10 @@ class RecommendationsTabEntity(BaseEntity):
         :param value: text to filter (default: no filter)
         """
         view = self.navigate_to(self, 'All Recommendations')
-        view.wait_displayed(timeout=10)
-        wait_for(lambda: view.clear_button.is_displayed, handle_exception=True, timeout=20)
+
         view.clear_button.click()
-        view.search_field.fill(value)
-        time.sleep(5)
-        return view.table.read()
+
+        return view.search(value)
 
     def remediate_affected_system(self, recommendation_name, hostname):
         """Open Affected systems, filter by hostname, select it, and click Remediate.
@@ -83,17 +81,18 @@ class RecommendationsTabEntity(BaseEntity):
         """
         # Use navigator to open the Affected Systems details view
         view = self.navigate_to(self, 'Affected Systems', recommendation_name=recommendation_name)
-        view.search_field.wait_displayed()
+
         # Filter by hostname and apply recommendation
         view.search_field.fill(hostname)
         wait_for(lambda: view.table.row(name=hostname), handle_exception=True, timeout=20)
-        time.sleep(15)
+
         view.table[0][0].widget.click()
         view.remediate.click()
-        self.browser.plugin.ensure_page_safe(timeout=30)
+
         modal = RemediateSummary(self.browser)
         wait_for(lambda: modal.is_displayed, handle_exception=True, timeout=20)
         modal.remediate.click()
+
         view = JobInvocationStatusView(view.browser)
         view.wait_for_result()
         return view.read()
@@ -126,8 +125,10 @@ class RecommendationsTabEntity(BaseEntity):
         :example: session.recommendationstab.apply_filter("Status", "Disabled")
         """
         view = self.navigate_to(self, 'All Recommendations')
+
         # Explicitly navigate to ensure we're on the main recommendations page
         view.menu.select('Red Hat Lightspeed', 'Recommendations')
+
         self.browser.plugin.ensure_page_safe(timeout=10)
         wait_for(lambda: view.table.is_displayed, timeout=30, handle_exception=True)
         view.clear_button.click()
@@ -215,17 +216,14 @@ class NavigateToAffectedSystems(NavigateStep):
     VIEW = RecommendationsDetailsView
 
     def prerequisite(self, *args, **kwargs):
-        # Ensure we are on the Recommendations tab first
         return self.navigate_to(self.obj, 'All Recommendations')
 
     def step(self, *args, **kwargs):
         recommendation_name = kwargs.get('recommendation_name')
-        # Filter by recommendation name and open its expanded content
-        time.sleep(5)
+
         self.parent.clear_button.click()
-        self.parent.search_field.fill(recommendation_name)
-        time.sleep(5)
-        row, _ = wait_for(lambda: self.parent.table.row(name=recommendation_name), timeout=5)
+        self.parent.search(recommendation_name)
+        row = self.parent.table[0]
         row.expand()
         row.content.affected_systems_url.click()
 

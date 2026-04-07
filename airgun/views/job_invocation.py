@@ -16,6 +16,7 @@ from widgetastic_patternfly5.ouia import (
     TextInput as PF5OUIATextInput,
 )
 
+from airgun.features import FeaturePicker
 from airgun.views.common import (
     BaseLoggedInView,
     SatTable,
@@ -37,7 +38,6 @@ class HostsExpandableTable(PF5OUIAExpandableTable):
         Then `super().read()` should return empty list.
         """
         wait_for(func=lambda: self.is_displayed, timeout=15, delay=1)
-        self.browser.plugin.ensure_page_safe(timeout=15)
         script = f"""
         rows = document.getElementsByTagName('{self.ROW_TAG}');
         last_row = rows[rows.length-1];
@@ -222,7 +222,6 @@ class JobInvocationStatusView(BaseLoggedInView):
             delay=1,
             logger=self.logger,
         )
-        self.browser.refresh()
 
     @View.nested
     class overall_status(DonutCircle):
@@ -297,16 +296,21 @@ class JobInvocationStatusView(BaseLoggedInView):
 
     @View.nested
     class hosts(View):
-        table = HostsExpandableTable(
-            component_id='job-invocation-hosts-table',
-            column_widgets={
-                1: Checkbox(locator='.//input[@type="checkbox"]'),
-                'Name': Text('./a'),
-                'Host group': Text('./a'),
-                'OS': Text('./a'),
-                'Capsule': Text('./a'),
-                'Status': Text('./span'),
-            },
+        column_widgets = {
+            1: Checkbox(locator='.//input[@type="checkbox"]'),
+            'Name': Text('./a'),
+            'Host group': Text('./a'),
+            'OS': Text('./a'),
+            'Capsule': Text('./a'),
+            'Status': Text('./span'),
+        }
+
+        table = FeaturePicker(
+            'ui.job_invocation.hosts_table_component_id',
+            HostsExpandableTable(
+                component_id='job-invocation-hosts-table', column_widgets=column_widgets
+            ),
+            HostsExpandableTable(component_id='table', column_widgets=column_widgets),
         )
 
         def read(self):

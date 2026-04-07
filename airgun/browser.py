@@ -19,6 +19,7 @@ from widgetastic.exceptions import NoAlertPresentException, NoSuchElementExcepti
 import yaml
 
 from airgun import settings
+from airgun.features import VersionFeatureChecker
 from airgun.widgets import (
     ConfirmationDialog,
     Pf4ConfirmationDialog,
@@ -310,6 +311,43 @@ class AirgunBrowser(Browser):
         extra_objects.update({'session': session})
         super().__init__(selenium, plugin_class=AirgunBrowserPlugin, extra_objects=extra_objects)
         self.window_handle = selenium.current_window_handle
+
+    @property
+    def satellite(self):
+        """Returns the satellite object from extra_objects if available.
+
+        :return: Satellite object or None
+        """
+        return self.extra_objects.get('satellite')
+
+    @property
+    def satellite_version(self):
+        """Returns the Satellite version for use with airgun.features.FeaturePicker.
+
+        :return: Version string (e.g., '6.19.1')
+        :raises: NotImplementedError if satellite object is not available or has no version
+        """
+        if self.satellite:
+            return self.satellite.version
+        raise NotImplementedError('Satellite object not available or has no version.')
+
+    @property
+    def iop_enabled(self):
+        """Returns whether IoP is enabled on the Satellite, for use with airgun.features.IoPPicker.
+
+        :return: True if IoP is enabled, False otherwise
+        """
+        return self.satellite.iop_enabled if self.satellite else False
+
+    @property
+    def feature_checker(self):
+        """Feature availability checker based on Satellite version.
+
+        :return: FeatureChecker instance
+        """
+        if not hasattr(self, '_feature_checker'):
+            self._feature_checker = VersionFeatureChecker(self.satellite_version)
+        return self._feature_checker
 
     def get_client_datetime(self):
         """Make Javascript call inside of browser session to get exact current

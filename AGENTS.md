@@ -137,7 +137,7 @@ class ShowAllActivationKeys(NavigateStep):
     VIEW = ActivationKeysView
     
     def step(self, *args, **kwargs):
-        self.view.menu.select('Content', 'Activation Keys')
+        self.view.menu.select('Content', 'Lifecycle', 'Activation Keys')
 
 @navigator.register(ActivationKeyEntity, 'New')
 class CreateNewActivationKey(NavigateStep):

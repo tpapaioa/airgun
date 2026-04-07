@@ -172,6 +172,7 @@ class Session:
         hostname=None,
         url=None,
         login=True,
+        satellite=None,
     ):
         """Stores provided values, doesn't perform any actions.
 
@@ -191,6 +192,8 @@ class Session:
         :param str optional hostname: The hostname of a target that differs from
             settings.satellite.hostname
         :param str optional url: URL path to open when starting session (without protocol
+        :param optional satellite: Satellite object to enable view picking based on
+            satellite_version and iop_enabled
         """
         if session_name:
             for c in '/ ':
@@ -204,11 +207,14 @@ class Session:
         self._hostname = hostname or settings.satellite.hostname
         self._url = url
         self._login = login
+        self._satellite = satellite
         self.navigator = None
         self.browser = None
         self.ui_session_id = None
 
-    def __call__(self, user=None, password=None, session_cookie=None, url=None, login=None):
+    def __call__(
+        self, user=None, password=None, session_cookie=None, url=None, login=None, satellite=None
+    ):
         """Stores provided values. This allows tests to provide additional
         value when Session object is returned from fixture and used as
         context manager. Arguments are the same as when initializing
@@ -224,6 +230,8 @@ class Session:
             self._url = url
         if login is not None:
             self._login = login
+        if satellite is not None:
+            self._satellite = satellite
         return self
 
     def __enter__(self):
@@ -284,7 +292,10 @@ class Session:
         )
         try:
             selenium_browser = self._factory.get_browser()
-            self.browser = AirgunBrowser(selenium_browser, self)
+            extra_objects = {}
+            if self._satellite:
+                extra_objects['satellite'] = self._satellite
+            self.browser = AirgunBrowser(selenium_browser, self, extra_objects=extra_objects)
             LOGGER.info(f'Session Id For {self.name}: {selenium_browser.session_id}')
             LOGGER.info(f'Setting initial URL to {url}')
             self.ui_session_id = selenium_browser.session_id

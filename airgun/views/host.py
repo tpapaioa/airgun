@@ -702,7 +702,7 @@ class RecommendationWidget(GenericLocatorWidget):
 
 
 class RecommendationListView(View):
-    """Insights tab view of a host"""
+    """Recommendations tab view of a host"""
 
     ROOT = "//div[contains(@id, 'host_details_insights_tab')]"
     ITEMS = ".//div[@id='hits_list']/div[contains(@class, 'list-group-item')]"
@@ -755,8 +755,8 @@ class HostDetailsView(BaseLoggedInView):
         properties_table = SatTableWithUnevenStructure(locator="//table[@id='properties_table']")
 
     @View.nested
-    class insights(SatTab):
-        insights_tab = RecommendationListView()
+    class recommendations_tab(SatTab):
+        recommendations = RecommendationListView()
 
 
 class HostEditView(HostCreateView):

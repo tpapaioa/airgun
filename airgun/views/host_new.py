@@ -47,6 +47,7 @@ from widgetastic_patternfly5.ouia import (
     Text as PF5OUIAText,
 )
 
+from airgun.features import FeaturePicker, IoPPicker
 from airgun.views.cloud_insights import BulkSelectMenuToggle
 from airgun.views.common import BaseLoggedInView, PF5LCESelectorGroup, SearchableViewMixinPF4
 from airgun.widgets import (
@@ -235,7 +236,7 @@ class HostDetailsCard(Widget):
         return items
 
 
-class HostColectionsList(Widget):
+class HostCollectionsList(Widget):
     """Host collections list in host details page"""
 
     ROOT = './/div[@class="pf-v5-c-card__body host-collection-card-body"]'
@@ -247,28 +248,29 @@ class HostColectionsList(Widget):
 
 
 class HostsView(BaseLoggedInView, SearchableViewMixinPF4):
-    """New All Hosts view.
-    Note: This is a minimal implementation of the new Hosts page, and currently it serves only to transition
-    to the now-legacy UI page.
-    """
+    """New All Hosts view."""
 
     title = Text('//h1[normalize-space(.)="Hosts"]')
     actions = PF5OUIADropdown(component_id='legacy-ui-kebab')
-    table = PF5OUIATable(
-        component_id='hosts-index-table',
-        column_widgets={
-            0: Checkbox(locator='.//input[@type="checkbox"]'),
-            'Name': Text(
-                './/a[contains(@href, "/new/hosts/") and not(contains(@href, "Red Hat Lightspeed"))]'
-            ),
-            'Recommendations': Text('./a'),
-            6: MenuToggleButtonMenu(),
-        },
+
+    column_widgets = {
+        0: Checkbox(locator='.//input[@type="checkbox"]'),
+        'Name': Text(
+            './/a[contains(@href, "/new/hosts/") and not(contains(@href, "Red Hat Lightspeed"))]'
+        ),
+        'Recommendations': Text('./a'),
+        6: MenuToggleButtonMenu(),
+    }
+
+    table = FeaturePicker(
+        'ui.hosts.legacy_ui_redirect',
+        PF5OUIATable(component_id='table', column_widgets=column_widgets),
+        PF5OUIATable(component_id='hosts-index-table', column_widgets=column_widgets),
     )
 
     @property
     def is_displayed(self):
-        return self.title.is_displayed
+        return self.title.is_displayed and self.table.is_displayed
 
 
 class BreadcrumbSwitcher(Widget):
@@ -320,10 +322,6 @@ class NewHostDetailsView(BaseLoggedInView):
     # Breadcrumb switcher for switching between hosts
     breadcrumb_switcher = BreadcrumbSwitcher()
 
-    @property
-    def is_displayed(self):
-        return self.breadcrumb.is_displayed and self.breadcrumb.locations[0] == 'Hosts'
-
     edit = PF5OUIAButton('host-edit-button')
     dropdown = PF5Dropdown(locator='//button[@id="hostdetails-kebab"]/..')
     schedule_job = Pf4ActionsDropdown(locator='.//div[div/button[@aria-label="Select"]]')
@@ -331,6 +329,10 @@ class NewHostDetailsView(BaseLoggedInView):
     select = Text(
         '//ul[@class="pf-v5-c-dropdown__menu pf-m-align-right"]/li/a/div[normalize-space(text())="Run Ansible roles"]'
     )
+
+    @property
+    def is_displayed(self):
+        return self.breadcrumb.is_displayed and self.breadcrumb.locations[0] == 'Hosts'
 
     @View.nested
     class overview(PF5Tab):
@@ -401,7 +403,7 @@ class NewHostDetailsView(BaseLoggedInView):
             no_host_collections = Text('.//h2')
             add_to_host_collection = PF5OUIAButton('add-to-a-host-collection-button')
 
-            assigned_host_collections = HostColectionsList()
+            assigned_host_collections = HostCollectionsList()
 
         @View.nested
         class recent_jobs(Card):
@@ -907,10 +909,10 @@ class NewHostDetailsView(BaseLoggedInView):
 
         pagination = PF4Pagination()
 
-    @View.nested
-    class insights(PF5Tab):
-        ROOT = './/div'
+    class InsightsTab(PF5Tab):
+        """Recommendations tab for non-IoP Satellite (hosted Insights)."""
 
+        ROOT = './/div'
         TAB_NAME = 'Recommendations'
 
         search_bar = SearchInput(locator='.//input[contains(@class, "pf-v5-c-text-input")]')
@@ -934,13 +936,13 @@ class NewHostDetailsView(BaseLoggedInView):
         )
         pagination = PF5Pagination()
 
-    @View.nested
-    class iop_recommendations(PF5Tab):
-        ROOT = './/div'
+    class IoPRecommendationsTab(PF5Tab):
+        """Recommendations tab for IoP-enabled Satellite (local Insights)."""
 
+        ROOT = './/div'
         TAB_NAME = 'Recommendations'
 
-        search_field = TextInput(locator=('.//input[@aria-label="text input"]'))
+        search_field = TextInput(locator='.//input[@aria-label="text input"]')
         conditional_filter_dropdown = PF5Button(
             './/button[@data-ouia-component-id="ConditionalFilterToggle"]'
         )
@@ -965,6 +967,9 @@ class NewHostDetailsView(BaseLoggedInView):
         @property
         def is_displayed(self):
             return self.recommendations_table.is_displayed
+
+    # Select between IoP or hosted recommendations tabs
+    recommendations = IoPPicker(View.nested(IoPRecommendationsTab), View.nested(InsightsTab))
 
     @View.nested
     class vulnerabilities(PF5Tab):
